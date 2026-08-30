@@ -26,3 +26,15 @@ node_modules
 
 venv/
 .venv
+
+# Büyük model dosyaları ve kişisel sesler
+reference_audio/*.wav
+reference_audio/*.mp3
+reference_audio/*.flac
+reference_audio/*.m4a
+chatterbox/models/
+chatterbox/*.pt
+chatterbox/*.bin
+
+# Geçici video dosyaları
+*.branded.mp4

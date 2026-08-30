@@ -1208,12 +1208,47 @@ def azure_tts_v1(
                     async for chunk in communicate.stream():
                         if chunk["type"] == "audio":
                             file.write(chunk["data"])
-                        elif chunk["type"] == "WordBoundary":
+                        elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
                             sub_maker.subs.append(chunk["text"])
                             sub_maker.offset.append((chunk["offset"], chunk["offset"] + chunk["duration"]))
                 return sub_maker
 
             sub_maker = asyncio.run(_do())
+            
+            # If boundary events weren't returned by edge_tts but audio was downloaded successfully, generate fallback timestamps
+            if (not sub_maker or not sub_maker.subs) and os.path.exists(voice_file) and os.path.getsize(voice_file) > 0:
+                logger.warning("No boundary events returned from edge-tts, generating fallback timestamps from audio duration")
+                if not sub_maker:
+                    sub_maker = ensure_submaker_compatibility(SubMaker())
+                try:
+                    from moviepy import AudioFileClip
+                    audio_clip = AudioFileClip(voice_file)
+                    audio_duration = audio_clip.duration
+                    audio_clip.close()
+                    audio_duration_100ns = int(audio_duration * 10000000)
+                    sentences = utils.split_string_by_punctuations(text)
+                    if sentences:
+                        total_chars = sum(len(s) for s in sentences)
+                        char_duration = (
+                            audio_duration_100ns / total_chars if total_chars > 0 else 0
+                        )
+                        current_offset = 0
+                        for sentence in sentences:
+                            if not sentence.strip():
+                                continue
+                            sentence_chars = len(sentence)
+                            sentence_duration = int(sentence_chars * char_duration)
+                            sub_maker.subs.append(sentence.strip())
+                            sub_maker.offset.append(
+                                (current_offset, current_offset + sentence_duration)
+                            )
+                            current_offset += sentence_duration
+                    else:
+                        sub_maker.subs = [text]
+                        sub_maker.offset = [(0, audio_duration_100ns)]
+                except Exception as ex:
+                    logger.error(f"Fallback timestamp generation failed: {ex}")
+
             if not sub_maker or not sub_maker.subs:
                 logger.warning("failed, sub_maker is None or sub_maker.subs is None")
                 continue

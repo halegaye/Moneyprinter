@@ -693,7 +693,7 @@ def create_enhanced_subtitle_clips(enhanced_subtitle_path, params, video_width, 
     def position_clip(clip, params, video_height):
         """Apply positioning to a clip based on subtitle position settings"""
         if params.subtitle_position == "bottom":
-            return clip.with_position(("center", video_height * 0.85))
+            return clip.with_position(("center", video_height * 0.78))
         elif params.subtitle_position == "top":
             return clip.with_position(("center", video_height * 0.05))
         elif params.subtitle_position == "custom":
@@ -916,7 +916,7 @@ def generate_video(
         _clip = _clip.with_end(subtitle_item[0][1])
         _clip = _clip.with_duration(duration)
         if params.subtitle_position == "bottom":
-            _clip = _clip.with_position(("center", video_height * 0.95 - _clip.h))
+            _clip = _clip.with_position(("center", video_height * 0.78 - _clip.h))
         elif params.subtitle_position == "top":
             _clip = _clip.with_position(("center", video_height * 0.05))
         elif params.subtitle_position == "custom":

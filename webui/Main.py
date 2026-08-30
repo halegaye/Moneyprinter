@@ -24,7 +24,9 @@ from app.models.schema import (
 )
 from app.services import llm, voice
 from app.services import task as tm
+from app.services import template_overlay
 from app.utils import utils
+
 
 st.set_page_config(
     page_title="MoneyPrinterTurbo",
@@ -1266,6 +1268,11 @@ if start_button:
         st.stop()
 
     video_files = result.get("videos", [])
+
+    # ── Persist for template overlay (survives Streamlit rerenders) ──
+    st.session_state["last_video_files"] = video_files
+    st.session_state["last_task_id"] = task_id
+
     st.success(tr("Video Generation Completed"))
     try:
         if video_files:
@@ -1278,5 +1285,101 @@ if start_button:
     open_task_folder(task_id)
     logger.info(tr("Video Generation Completed"))
     scroll_to_bottom()
+
+# ── Template Overlay Section (outside if start_button so button clicks work) ──
+if st.session_state.get("last_video_files"):
+    _video_files = st.session_state["last_video_files"]
+    _task_id = st.session_state.get("last_task_id", "default")
+
+    st.divider()
+    st.markdown("### 🎬 Şablona Oturtur")
+
+    template_path = os.path.join(utils.root_dir(), "resource", "public", "template_frame.jpg")
+    template_exists = os.path.exists(template_path)
+
+    col_tmpl_img, col_tmpl_btn = st.columns([1, 2])
+    with col_tmpl_img:
+        if template_exists:
+            st.image(template_path, caption="Aktif Şablon", use_container_width=True)
+        else:
+            st.warning("⚠️ Şablon dosyası bulunamadı: resource/public/template_frame.jpg")
+
+    with col_tmpl_btn:
+        st.markdown("#### Gone Medya Şablonu")
+        st.markdown("Oluşturulan videoyu şablonun siyah alanına oturtarak markalı video üretir.")
+
+        # Video scale slider
+        video_scale = st.slider(
+            "📐 Video boyutu (sorun olursa küçült)",
+            min_value=0.70,
+            max_value=1.00,
+            value=1.00,
+            step=0.01,
+            format="%.0f%%",
+            help="Normalde 100%'de bırak. Altyazılar şablonun altına giriyorsa 85-90'a düşür.",
+            key="tmpl_video_scale",
+        )
+
+        # Custom template upload
+        custom_template = st.file_uploader(
+            "Farklı bir şablon yükle (isteğe bağlı)",
+            type=["jpg", "jpeg", "png"],
+            key="tmpl_upload",
+        )
+
+        apply_btn = st.button(
+            "🖼️ Şablona Oturtur ve İndir",
+            use_container_width=True,
+            type="primary",
+            key="apply_tmpl_btn",
+            disabled=not template_exists and custom_template is None,
+        )
+
+        if apply_btn:
+            # Determine which template file to use
+            active_template = template_path
+            if custom_template is not None:
+                import tempfile as _tempfile
+                _suffix = ".jpg" if custom_template.name.lower().endswith((".jpg", ".jpeg")) else ".png"
+                _tmp = _tempfile.NamedTemporaryFile(delete=False, suffix=_suffix)
+                _tmp.write(custom_template.read())
+                _tmp.close()
+                active_template = _tmp.name
+
+            branded_videos = []
+            progress = st.progress(0, text="Şablon uygulanıyor...")
+            for idx, video_path in enumerate(_video_files):
+                base, ext = os.path.splitext(video_path)
+                branded_path = f"{base}_branded{ext}"
+                progress.progress(
+                    int((idx / len(_video_files)) * 80),
+                    text=f"Video {idx + 1}/{len(_video_files)} işleniyor...",
+                )
+                success = template_overlay.apply_template(
+                    input_video_path=video_path,
+                    output_video_path=branded_path,
+                    template_path=active_template,
+                    video_scale=video_scale,
+                )
+                if success:
+                    branded_videos.append(branded_path)
+                else:
+                    st.error(f"❌ Video {idx + 1} için şablon uygulanamadı.")
+
+            progress.progress(100, text="Tamamlandı!")
+
+            if branded_videos:
+                st.success(f"✅ {len(branded_videos)} video şablona oturtuldu!")
+                for i, bv in enumerate(branded_videos):
+                    st.video(bv)
+                    with open(bv, "rb") as f:
+                        fname = os.path.basename(bv)
+                        st.download_button(
+                            label=f"⬇️ Video {i + 1} İndir ({fname})",
+                            data=f,
+                            file_name=fname,
+                            mime="video/mp4",
+                            key=f"dl_branded_{i}",
+                        )
 
 config.save_config()
