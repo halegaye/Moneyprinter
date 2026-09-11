@@ -466,40 +466,41 @@ if not config.app.get("hide_config", False):
             save_keys_to_config("pixabay_api_keys", pixabay_api_key)
 
 llm_provider = config.app.get("llm_provider", "").lower()
-panel = st.columns(3)
-left_panel = panel[0]
-middle_panel = panel[1]
-right_panel = panel[2]
 
 params = VideoParams(video_subject="")
 uploaded_files = []
 
-with left_panel:
+main_tab, settings_tab = st.tabs([f"🎬 {tr('Generate Video')}", f"⚙️ {tr('Settings')}"])
+
+with main_tab:
     with st.container(border=True):
-        st.write(tr("Video Script Settings"))
-        params.video_subject = st.text_input(
-            tr("Video Subject"),
-            value=st.session_state["video_subject"],
-            key="video_subject_input",
-        ).strip()
+        st.write(f"### {tr('Video Script Settings')}")
+        
+        subj_col, lang_col = st.columns([3, 1])
+        with subj_col:
+            params.video_subject = st.text_input(
+                tr("Video Subject"),
+                value=st.session_state["video_subject"],
+                key="video_subject_input",
+            ).strip()
+        with lang_col:
+            video_languages = [
+                (tr("Auto Detect"), ""),
+            ]
+            for code in support_locales:
+                video_languages.append((code, code))
 
-        video_languages = [
-            (tr("Auto Detect"), ""),
-        ]
-        for code in support_locales:
-            video_languages.append((code, code))
-
-        selected_index = st.selectbox(
-            tr("Script Language"),
-            index=0,
-            options=range(
-                len(video_languages)
-            ),  # Use the index as the internal option value
-            format_func=lambda x: video_languages[x][
-                0
-            ],  # The label is displayed to the user
-        )
-        params.video_language = video_languages[selected_index][1]
+            selected_index = st.selectbox(
+                tr("Script Language"),
+                index=0,
+                options=range(
+                    len(video_languages)
+                ),  # Use the index as the internal option value
+                format_func=lambda x: video_languages[x][
+                    0
+                ],  # The label is displayed to the user
+            )
+            params.video_language = video_languages[selected_index][1]
 
         if st.button(
             tr("Generate Video Script and Keywords"), key="auto_generate_script"
@@ -517,7 +518,7 @@ with left_panel:
                     st.session_state["video_script"] = script
                     st.session_state["video_terms"] = ", ".join(terms)
         params.video_script = st.text_area(
-            tr("Video Script"), value=st.session_state["video_script"], height=280
+            tr("Video Script"), value=st.session_state["video_script"], height=220
         )
         if st.button(tr("Generate Video Keywords"), key="auto_generate_terms"):
             if not params.video_script:
@@ -532,481 +533,473 @@ with left_panel:
                     st.session_state["video_terms"] = ", ".join(terms)
 
         params.video_terms = st.text_area(
-            tr("Video Keywords"), value=st.session_state["video_terms"]
+            tr("Video Keywords"), value=st.session_state["video_terms"], height=100
         )
 
-with middle_panel:
-    with st.container(border=True):
-        st.write(tr("Video Settings"))
-        video_concat_modes = [
-            (tr("Sequential"), "sequential"),
-            (tr("Random"), "random"),
-            (tr("Semantic Text Alignment"), "semantic"),
-        ]
-        video_sources = [
-            (tr("Pexels"), "pexels"),
-            (tr("Pixabay"), "pixabay"),
-            (tr("Local file"), "local"),
-            (tr("TikTok"), "douyin"),
-            (tr("Bilibili"), "bilibili"),
-            (tr("Xiaohongshu"), "xiaohongshu"),
-        ]
+    main_action_container = st.container()
 
-        saved_video_source_name = config.app.get("video_source", "pexels")
-        saved_video_source_index = [v[1] for v in video_sources].index(
-            saved_video_source_name
-        )
+with settings_tab:
+    settings_cols = st.columns(2)
+    left_settings = settings_cols[0]
+    right_settings = settings_cols[1]
 
-        selected_index = st.selectbox(
-            tr("Video Source"),
-            options=range(len(video_sources)),
-            format_func=lambda x: video_sources[x][0],
-            index=saved_video_source_index,
-        )
-        params.video_source = video_sources[selected_index][1]
-        config.app["video_source"] = params.video_source
+    with left_settings:
+        with st.container(border=True):
+            st.write(f"### {tr('Video Settings')}")
+            video_concat_modes = [
+                (tr("Sequential"), "sequential"),
+                (tr("Random"), "random"),
+                (tr("Semantic Text Alignment"), "semantic"),
+            ]
+            video_sources = [
+                (tr("Pexels"), "pexels"),
+                (tr("Pixabay"), "pixabay"),
+                (tr("Local file"), "local"),
+                (tr("TikTok"), "douyin"),
+                (tr("Bilibili"), "bilibili"),
+                (tr("Xiaohongshu"), "xiaohongshu"),
+            ]
 
-        if params.video_source == "local":
-            uploaded_files = st.file_uploader(
-                "Upload Local Files",
-                type=["mp4", "mov", "avi", "flv", "mkv", "jpg", "jpeg", "png"],
-                accept_multiple_files=True,
+            saved_video_source_name = config.app.get("video_source", "pexels")
+            saved_video_source_index = [v[1] for v in video_sources].index(
+                saved_video_source_name
             )
 
-        selected_index = st.selectbox(
-            tr("Video Concat Mode"),
-            index=1,
-            options=range(
-                len(video_concat_modes)
-            ),  # Use the index as the internal option value
-            format_func=lambda x: video_concat_modes[x][
-                0
-            ],  # The label is displayed to the user
-        )
-        params.video_concat_mode = VideoConcatMode(
-            video_concat_modes[selected_index][1]
-        )
+            selected_index = st.selectbox(
+                tr("Video Source"),
+                options=range(len(video_sources)),
+                format_func=lambda x: video_sources[x][0],
+                index=saved_video_source_index,
+            )
+            params.video_source = video_sources[selected_index][1]
+            config.app["video_source"] = params.video_source
 
-        # Semantic Video Matching Settings - only show when semantic mode is selected
-        if params.video_concat_mode.value == "semantic":
-            with st.container(border=True):
-                st.write(tr("Semantic Video Matching Settings"))
-                st.info(tr("Semantic mode analyzes script content to intelligently match video clips with spoken words for better relevance."))
-                
-                # Check if sentence-transformers is available
-                try:
-                    import sentence_transformers
-                    st.success("✅ Semantic search dependencies are installed and ready.")
-                except ImportError:
-                    st.warning("⚠️ Semantic search requires sentence-transformers package to be installed.")
-                    st.code("pip install sentence-transformers scikit-learn")
-                
-                # Script Segmentation Method
-                segmentation_methods = [
-                    (tr("Split by Sentences"), "sentences"),
-                    (tr("Split by Paragraphs"), "paragraphs"),
-                ]
-                segmentation_index = st.selectbox(
-                    tr("Script Segmentation Method"),
-                    options=range(len(segmentation_methods)),
-                    format_func=lambda x: segmentation_methods[x][0],
-                    index=0,
+            if params.video_source == "local":
+                uploaded_files = st.file_uploader(
+                    "Upload Local Files",
+                    type=["mp4", "mov", "avi", "flv", "mkv", "jpg", "jpeg", "png"],
+                    accept_multiple_files=True,
                 )
-                params.segmentation_method = segmentation_methods[segmentation_index][1]
-                
-                # Minimum Segment Length
-                params.min_segment_length = st.slider(
-                    tr("Minimum Segment Length"),
-                    min_value=10,
-                    max_value=100,
-                    value=config.app.get("minimum_segment_length", 25),
-                    step=5,
-                    help=tr("Minimum character length for each script segment")
-                )
-                
-                # Similarity Threshold
-                params.similarity_threshold = st.slider(
-                    tr("Similarity Threshold"),
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=config.app.get("semantic_similarity_threshold", 0.5),
-                    step=0.05,
-                    help=tr("Minimum similarity score required for video-text matching")
-                )
-                
-                # Video Diversity Threshold
-                params.diversity_threshold = st.slider(
-                    tr("Video Diversity Threshold"),
-                    min_value=1,
-                    max_value=20,
-                    value=config.app.get("video_diversity_threshold", 5),
-                    step=1,
-                    help=tr("Controls how often the same video can be reused")
-                )
-                
-                # Max Video Reuse
-                params.max_video_reuse = st.slider(
-                    tr("Max Video Reuse"),
-                    min_value=1,
-                    max_value=10,
-                    value=2,
-                    step=1,
-                    help=tr("Maximum number of times a single video can be reused in the final output")
-                )
-                
-                # Search Pool Size
-                params.search_pool_size = st.slider(
-                    tr("Search Pool Size"),
-                    min_value=10,
-                    max_value=200,
-                    value=config.app.get("semantic_search_pool_size", 50),
-                    step=10,
-                    help=tr("Number of videos to consider for semantic matching")
-                )
-                
-                # Semantic Search Model
-                semantic_models = [
-                    ("MPNet Base V2 (Recommended)", "all-mpnet-base-v2"),
-                    ("MiniLM L6 V2 (Faster)", "all-MiniLM-L6-v2"),
-                    ("MiniLM L12 V2 (Balanced)", "all-MiniLM-L12-v2"),
-                ]
-                
-                # Find the index of the saved semantic model
-                saved_semantic_model = config.app.get("semantic_search_model", "all-mpnet-base-v2")
-                saved_semantic_model_index = 0
-                for i, (_, model_value) in enumerate(semantic_models):
-                    if model_value == saved_semantic_model:
-                        saved_semantic_model_index = i
-                        break
-                
-                model_index = st.selectbox(
-                    tr("Semantic Search Model"),
-                    options=range(len(semantic_models)),
-                    format_func=lambda x: semantic_models[x][0],
-                    index=saved_semantic_model_index,
-                )
-                params.semantic_model = semantic_models[model_index][1]
-                
-                # Image Similarity Settings
-                st.markdown("---")
-                st.subheader(tr("Image Similarity Settings"))
-                
-                # Check if image similarity dependencies are available
-                image_sim_available = False
-                image_sim_info = {"available": False, "dependencies": ["transformers", "torch", "pillow"]}
-                
-                try:
-                    # Test direct imports of required dependencies
-                    from transformers import CLIPProcessor, CLIPModel
-                    from PIL import Image
-                    import torch
-                    image_sim_available = True
-                    image_sim_info = {"available": True, "dependencies": []}
-                except ImportError as e:
-                    image_sim_available = False
-                    # Try to determine which specific dependency is missing
-                    missing_deps = []
+
+            selected_index = st.selectbox(
+                tr("Video Concat Mode"),
+                index=1,
+                options=range(
+                    len(video_concat_modes)
+                ),  # Use the index as the internal option value
+                format_func=lambda x: video_concat_modes[x][
+                    0
+                ],  # The label is displayed to the user
+            )
+            params.video_concat_mode = VideoConcatMode(
+                video_concat_modes[selected_index][1]
+            )
+
+            # Semantic Video Matching Settings - only show when semantic mode is selected
+            if params.video_concat_mode.value == "semantic":
+                with st.container(border=True):
+                    st.write(tr("Semantic Video Matching Settings"))
+                    st.info(tr("Semantic mode analyzes script content to intelligently match video clips with spoken words for better relevance."))
+                    
+                    # Check if sentence-transformers is available
                     try:
-                        from transformers import CLIPProcessor, CLIPModel
+                        import sentence_transformers
+                        st.success("✅ Semantic search dependencies are installed and ready.")
                     except ImportError:
-                        missing_deps.append("transformers")
+                        st.warning("⚠️ Semantic search requires sentence-transformers package to be installed.")
+                        st.code("pip install sentence-transformers scikit-learn")
                     
-                    try:
-                        import torch
-                    except ImportError:
-                        missing_deps.append("torch")
+                    # Script Segmentation Method
+                    segmentation_methods = [
+                        (tr("Split by Sentences"), "sentences"),
+                        (tr("Split by Paragraphs"), "paragraphs"),
+                    ]
+                    segmentation_index = st.selectbox(
+                        tr("Script Segmentation Method"),
+                        options=range(len(segmentation_methods)),
+                        format_func=lambda x: segmentation_methods[x][0],
+                        index=0,
+                    )
+                    params.segmentation_method = segmentation_methods[segmentation_index][1]
                     
-                    try:
-                        from PIL import Image
-                    except ImportError:
-                        missing_deps.append("pillow")
-                    
-                    if not missing_deps:
-                        missing_deps = ["transformers", "torch", "pillow"]
-                    
-                    image_sim_info = {"available": False, "dependencies": missing_deps}
-                
-                if image_sim_available:
-                    st.success("✅ Image similarity dependencies are installed and ready.")
-                    
-                    # Enable Image Similarity - use config default
-                    params.enable_image_similarity = st.checkbox(
-                        tr("Enable Image Similarity"),
-                        value=config.app.get("enable_image_similarity", False),
-                        help=tr("Compare text with video thumbnails and preview images for better matching")
+                    # Minimum Segment Length
+                    params.min_segment_length = st.slider(
+                        tr("Minimum Segment Length"),
+                        min_value=10,
+                        max_value=100,
+                        value=config.app.get("minimum_segment_length", 25),
+                        step=5,
+                        help=tr("Minimum character length for each script segment")
                     )
                     
-                    if params.enable_image_similarity:
-                        # Image Similarity Threshold - use config default
-                        params.image_similarity_threshold = st.slider(
-                            tr("Image Similarity Threshold"),
-                            min_value=0.0,
-                            max_value=1.0,
-                            value=config.app.get("image_similarity_threshold", 0.7),
-                            step=0.05,
-                            help=tr("Minimum image similarity score required for video-text matching")
+                    # Similarity Threshold
+                    params.similarity_threshold = st.slider(
+                        tr("Similarity Threshold"),
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=config.app.get("semantic_similarity_threshold", 0.5),
+                        step=0.05,
+                        help=tr("Minimum similarity score required for video-text matching")
+                    )
+                    
+                    # Video Diversity Threshold
+                    params.diversity_threshold = st.slider(
+                        tr("Video Diversity Threshold"),
+                        min_value=1,
+                        max_value=20,
+                        value=config.app.get("video_diversity_threshold", 5),
+                        step=1,
+                        help=tr("Controls how often the same video can be reused")
+                    )
+                    
+                    # Max Video Reuse
+                    params.max_video_reuse = st.slider(
+                        tr("Max Video Reuse"),
+                        min_value=1,
+                        max_value=10,
+                        value=2,
+                        step=1,
+                        help=tr("Maximum number of times a single video can be reused in the final output")
+                    )
+                    
+                    # Search Pool Size
+                    params.search_pool_size = st.slider(
+                        tr("Search Pool Size"),
+                        min_value=10,
+                        max_value=200,
+                        value=config.app.get("semantic_search_pool_size", 50),
+                        step=10,
+                        help=tr("Number of videos to consider for semantic matching")
+                    )
+                    
+                    # Semantic Search Model
+                    semantic_models = [
+                        ("MPNet Base V2 (Recommended)", "all-mpnet-base-v2"),
+                        ("MiniLM L6 V2 (Faster)", "all-MiniLM-L6-v2"),
+                        ("MiniLM L12 V2 (Balanced)", "all-MiniLM-L12-v2"),
+                    ]
+                    
+                    # Find the index of the saved semantic model
+                    saved_semantic_model = config.app.get("semantic_search_model", "all-mpnet-base-v2")
+                    saved_semantic_model_index = 0
+                    for i, (_, model_value) in enumerate(semantic_models):
+                        if model_value == saved_semantic_model:
+                            saved_semantic_model_index = i
+                            break
+                    
+                    model_index = st.selectbox(
+                        tr("Semantic Search Model"),
+                        options=range(len(semantic_models)),
+                        format_func=lambda x: semantic_models[x][0],
+                        index=saved_semantic_model_index,
+                    )
+                    params.semantic_model = semantic_models[model_index][1]
+                    
+                    # Image Similarity Settings
+                    st.markdown("---")
+                    st.subheader(tr("Image Similarity Settings"))
+                    
+                    # Check if image similarity dependencies are available
+                    image_sim_available = False
+                    image_sim_info = {"available": False, "dependencies": ["transformers", "torch", "pillow"]}
+                    
+                    try:
+                        # Test direct imports of required dependencies
+                        from transformers import CLIPProcessor, CLIPModel
+                        from PIL import Image
+                        import torch
+                        image_sim_available = True
+                        image_sim_info = {"available": True, "dependencies": []}
+                    except ImportError as e:
+                        image_sim_available = False
+                        missing_deps = []
+                        try:
+                            from transformers import CLIPProcessor, CLIPModel
+                        except ImportError:
+                            missing_deps.append("transformers")
+                        
+                        try:
+                            import torch
+                        except ImportError:
+                            missing_deps.append("torch")
+                        
+                        try:
+                            from PIL import Image
+                        except ImportError:
+                            missing_deps.append("pillow")
+                        
+                        if not missing_deps:
+                            missing_deps = ["transformers", "torch", "pillow"]
+                        
+                        image_sim_info = {"available": False, "dependencies": missing_deps}
+                    
+                    if image_sim_available:
+                        st.success("✅ Image similarity dependencies are installed and ready.")
+                        
+                        # Enable Image Similarity - use config default
+                        params.enable_image_similarity = st.checkbox(
+                            tr("Enable Image Similarity"),
+                            value=config.app.get("enable_image_similarity", False),
+                            help=tr("Compare text with video thumbnails and preview images for better matching")
                         )
                         
-                        # Image Similarity Model - use config default
-                        image_models = [
-                            ("CLIP ViT-B/32 (Recommended)", "clip-vit-base-patch32"),
-                            ("CLIP ViT-B/16 (Higher Quality)", "clip-vit-base-patch16"),
-                            ("CLIP ViT-L/14 (Best Quality)", "clip-vit-large-patch14"),
-                        ]
-                        
-                        # Find the index of the saved model
-                        saved_model = config.app.get("image_similarity_model", "clip-vit-base-patch32")
-                        saved_model_index = 0
-                        for i, (_, model_value) in enumerate(image_models):
-                            if model_value == saved_model:
-                                saved_model_index = i
-                                break
-                        
-                        image_model_index = st.selectbox(
-                            tr("Image Similarity Model"),
-                            options=range(len(image_models)),
-                            format_func=lambda x: image_models[x][0],
-                            index=saved_model_index,
-                            help=tr("CLIP model for text-image similarity comparison")
-                        )
-                        params.image_similarity_model = image_models[image_model_index][1]
-                        
-                        st.info(tr("Image similarity analyzes video thumbnails and preview frames to find videos that visually match the script content."))
+                        if params.enable_image_similarity:
+                            # Image Similarity Threshold - use config default
+                            params.image_similarity_threshold = st.slider(
+                                tr("Image Similarity Threshold"),
+                                min_value=0.0,
+                                max_value=1.0,
+                                value=config.app.get("image_similarity_threshold", 0.7),
+                                step=0.05,
+                                help=tr("Minimum image similarity score required for video-text matching")
+                            )
+                            
+                            # Image Similarity Model - use config default
+                            image_models = [
+                                ("CLIP ViT-B/32 (Recommended)", "clip-vit-base-patch32"),
+                                ("CLIP ViT-B/16 (Higher Quality)", "clip-vit-base-patch16"),
+                                ("CLIP ViT-L/14 (Best Quality)", "clip-vit-large-patch14"),
+                            ]
+                            
+                            # Find the index of the saved model
+                            saved_model = config.app.get("image_similarity_model", "clip-vit-base-patch32")
+                            saved_model_index = 0
+                            for i, (_, model_value) in enumerate(image_models):
+                                if model_value == saved_model:
+                                    saved_model_index = i
+                                    break
+                            
+                            image_model_index = st.selectbox(
+                                tr("Image Similarity Model"),
+                                options=range(len(image_models)),
+                                format_func=lambda x: image_models[x][0],
+                                index=saved_model_index,
+                                help=tr("CLIP model for text-image similarity comparison")
+                            )
+                            params.image_similarity_model = image_models[image_model_index][1]
+                            
+                            st.info(tr("Image similarity analyzes video thumbnails and preview frames to find videos that visually match the script content."))
+                        else:
+                            # Set default values when image similarity is disabled
+                            params.image_similarity_threshold = config.app.get("image_similarity_threshold", 0.7)
+                            params.image_similarity_model = config.app.get("image_similarity_model", "clip-vit-base-patch32")
                     else:
-                        # Set default values when image similarity is disabled
-                        params.image_similarity_threshold = config.app.get("image_similarity_threshold", 0.7)
-                        params.image_similarity_model = config.app.get("image_similarity_model", "clip-vit-base-patch32")
-                else:
-                    st.warning("⚠️ Image similarity requires additional dependencies.")
-                    missing_deps = ", ".join(image_sim_info.get("dependencies", []))
-                    st.code(f"pip install {missing_deps}")
-                    params.enable_image_similarity = False
-                    params.image_similarity_threshold = 0.7
-                    params.image_similarity_model = "clip-vit-base-patch32"
-        else:
-            # Set default values when not in semantic mode
-            params.segmentation_method = "sentences"
-            params.min_segment_length = config.app.get("minimum_segment_length", 25)
-            params.similarity_threshold = config.app.get("semantic_similarity_threshold", 0.5)
-            params.diversity_threshold = config.app.get("video_diversity_threshold", 5)
-            params.max_video_reuse = 2
-            params.search_pool_size = config.app.get("semantic_search_pool_size", 50)
-            params.semantic_model = config.app.get("semantic_search_model", "all-mpnet-base-v2")
-            # Image similarity defaults
-            params.enable_image_similarity = config.app.get("enable_image_similarity", False)
-            params.image_similarity_threshold = config.app.get("image_similarity_threshold", 0.7)
-            params.image_similarity_model = config.app.get("image_similarity_model", "clip-vit-base-patch32")
+                        st.warning("⚠️ Image similarity requires additional dependencies.")
+                        missing_deps = ", ".join(image_sim_info.get("dependencies", []))
+                        st.code(f"pip install {missing_deps}")
+                        params.enable_image_similarity = False
+                        params.image_similarity_threshold = 0.7
+                        params.image_similarity_model = "clip-vit-base-patch32"
+            else:
+                # Set default values when not in semantic mode
+                params.segmentation_method = "sentences"
+                params.min_segment_length = config.app.get("minimum_segment_length", 25)
+                params.similarity_threshold = config.app.get("semantic_similarity_threshold", 0.5)
+                params.diversity_threshold = config.app.get("video_diversity_threshold", 5)
+                params.max_video_reuse = 2
+                params.search_pool_size = config.app.get("semantic_search_pool_size", 50)
+                params.semantic_model = config.app.get("semantic_search_model", "all-mpnet-base-v2")
+                # Image similarity defaults
+                params.enable_image_similarity = config.app.get("enable_image_similarity", False)
+                params.image_similarity_threshold = config.app.get("image_similarity_threshold", 0.7)
+                params.image_similarity_model = config.app.get("image_similarity_model", "clip-vit-base-patch32")
 
-        # 视频转场模式
-        video_transition_modes = [
-            (tr("None"), VideoTransitionMode.none.value),
-            (tr("Shuffle"), VideoTransitionMode.shuffle.value),
-            (tr("FadeIn"), VideoTransitionMode.fade_in.value),
-            (tr("FadeOut"), VideoTransitionMode.fade_out.value),
-            (tr("SlideIn"), VideoTransitionMode.slide_in.value),
-            (tr("SlideOut"), VideoTransitionMode.slide_out.value),
-        ]
-        selected_index = st.selectbox(
-            tr("Video Transition Mode"),
-            options=range(len(video_transition_modes)),
-            format_func=lambda x: video_transition_modes[x][0],
-            index=0,
-        )
-        params.video_transition_mode = VideoTransitionMode(
-            video_transition_modes[selected_index][1]
-        )
+            # 视频转场模式
+            video_transition_modes = [
+                (tr("None"), VideoTransitionMode.none.value),
+                (tr("Shuffle"), VideoTransitionMode.shuffle.value),
+                (tr("FadeIn"), VideoTransitionMode.fade_in.value),
+                (tr("FadeOut"), VideoTransitionMode.fade_out.value),
+                (tr("SlideIn"), VideoTransitionMode.slide_in.value),
+                (tr("SlideOut"), VideoTransitionMode.slide_out.value),
+            ]
+            selected_index = st.selectbox(
+                tr("Video Transition Mode"),
+                options=range(len(video_transition_modes)),
+                format_func=lambda x: video_transition_modes[x][0],
+                index=0,
+            )
+            params.video_transition_mode = VideoTransitionMode(
+                video_transition_modes[selected_index][1]
+            )
 
-        video_aspect_ratios = [
-            (tr("Portrait"), VideoAspect.portrait.value),
-            (tr("Landscape"), VideoAspect.landscape.value),
-        ]
-        selected_index = st.selectbox(
-            tr("Video Ratio"),
-            options=range(
-                len(video_aspect_ratios)
-            ),  # Use the index as the internal option value
-            format_func=lambda x: video_aspect_ratios[x][
-                0
-            ],  # The label is displayed to the user
-        )
-        params.video_aspect = VideoAspect(video_aspect_ratios[selected_index][1])
+            video_aspect_ratios = [
+                (tr("Portrait"), VideoAspect.portrait.value),
+                (tr("Landscape"), VideoAspect.landscape.value),
+            ]
+            selected_index = st.selectbox(
+                tr("Video Ratio"),
+                options=range(
+                    len(video_aspect_ratios)
+                ),  # Use the index as the internal option value
+                format_func=lambda x: video_aspect_ratios[x][
+                    0
+                ],  # The label is displayed to the user
+            )
+            params.video_aspect = VideoAspect(video_aspect_ratios[selected_index][1])
 
-        params.video_clip_duration = st.selectbox(
-            tr("Clip Duration"), options=[2, 3, 4, 5, 6, 7, 8, 9, 10], index=1
-        )
-        params.video_count = st.selectbox(
-            tr("Number of Videos Generated Simultaneously"),
-            options=[1, 2, 3, 4, 5],
-            index=0,
-        )
-        
-        # Show warning for multiple videos with semantic mode
-        if params.video_count > 1 and params.video_concat_mode.value == "semantic":
-            st.warning("⚠️ **Multiple Videos + Semantic Mode**: When generating multiple videos, the system will automatically use **Random** concatenation mode instead of Semantic mode to ensure video variety. Semantic mode would produce identical videos, which is not useful for multiple generation.")
+            params.video_clip_duration = st.selectbox(
+                tr("Clip Duration"), options=[2, 3, 4, 5, 6, 7, 8, 9, 10], index=1
+            )
+            params.video_count = st.selectbox(
+                tr("Number of Videos Generated Simultaneously"),
+                options=[1, 2, 3, 4, 5],
+                index=0,
+            )
+            
+            # Show warning for multiple videos with semantic mode
+            if params.video_count > 1 and params.video_concat_mode.value == "semantic":
+                st.warning("⚠️ **Multiple Videos + Semantic Mode**: When generating multiple videos, the system will automatically use **Random** concatenation mode instead of Semantic mode to ensure video variety. Semantic mode would produce identical videos, which is not useful for multiple generation.")
 
-    with st.container(border=True):
-        st.write(tr("Audio Settings"))
+        with st.container(border=True):
+            st.write(f"### {tr('Audio Settings')}")
 
-        # 添加TTS服务器选择下拉框
-        tts_servers = [
-            ("azure-tts-v1", "Azure TTS V1"),
-            ("azure-tts-v2", "Azure TTS V2"),
-            ("siliconflow", "SiliconFlow TTS"),
-            ("chatterbox", "Chatterbox TTS (Open Source)"),
-        ]
+            # 添加TTS服务器选择下拉框
+            tts_servers = [
+                ("azure-tts-v1", "Azure TTS V1"),
+                ("azure-tts-v2", "Azure TTS V2"),
+                ("siliconflow", "SiliconFlow TTS"),
+                ("chatterbox", "Chatterbox TTS (Open Source)"),
+            ]
 
-        # 获取保存的TTS服务器，默认为v1
-        saved_tts_server = config.ui.get("tts_server", "azure-tts-v1")
-        saved_tts_server_index = 0
-        for i, (server_value, _) in enumerate(tts_servers):
-            if server_value == saved_tts_server:
-                saved_tts_server_index = i
-                break
-
-        selected_tts_server_index = st.selectbox(
-            tr("TTS Servers"),
-            options=range(len(tts_servers)),
-            format_func=lambda x: tts_servers[x][1],
-            index=saved_tts_server_index,
-        )
-
-        selected_tts_server = tts_servers[selected_tts_server_index][0]
-        config.ui["tts_server"] = selected_tts_server
-
-        # 根据选择的TTS服务器获取声音列表
-        filtered_voices = []
-
-        if selected_tts_server == "siliconflow":
-            # 获取硅基流动的声音列表
-            filtered_voices = voice.get_siliconflow_voices()
-        elif selected_tts_server == "chatterbox":
-            # 获取Chatterbox的声音列表
-            filtered_voices = voice.get_chatterbox_voices()
-        else:
-            # 获取Azure的声音列表
-            all_voices = voice.get_all_azure_voices(filter_locals=None)
-
-            # 根据选择的TTS服务器筛选声音
-            for v in all_voices:
-                if selected_tts_server == "azure-tts-v2":
-                    # V2版本的声音名称中包含"v2"
-                    if "V2" in v:
-                        filtered_voices.append(v)
-                else:
-                    # V1版本的声音名称中不包含"v2"
-                    if "V2" not in v:
-                        filtered_voices.append(v)
-
-        friendly_names = {
-            v: v.replace("Female", tr("Female"))
-            .replace("Male", tr("Male"))
-            .replace("Neural", "")
-            for v in filtered_voices
-        }
-
-        saved_voice_name = config.ui.get("voice_name", "")
-        saved_voice_name_index = 0
-
-        # 检查保存的声音是否在当前筛选的声音列表中
-        if saved_voice_name in friendly_names:
-            saved_voice_name_index = list(friendly_names.keys()).index(saved_voice_name)
-        else:
-            # 如果不在，则根据当前UI语言选择一个默认声音
-            for i, v in enumerate(filtered_voices):
-                if v.lower().startswith(st.session_state["ui_language"].lower()):
-                    saved_voice_name_index = i
+            # 获取保存的TTS服务器，默认为v1
+            saved_tts_server = config.ui.get("tts_server", "azure-tts-v1")
+            saved_tts_server_index = 0
+            for i, (server_value, _) in enumerate(tts_servers):
+                if server_value == saved_tts_server:
+                    saved_tts_server_index = i
                     break
 
-        # 如果没有找到匹配的声音，使用第一个声音
-        if saved_voice_name_index >= len(friendly_names) and friendly_names:
+            selected_tts_server_index = st.selectbox(
+                tr("TTS Servers"),
+                options=range(len(tts_servers)),
+                format_func=lambda x: tts_servers[x][1],
+                index=saved_tts_server_index,
+            )
+
+            selected_tts_server = tts_servers[selected_tts_server_index][0]
+            config.ui["tts_server"] = selected_tts_server
+
+            # 根据选择的TTS服务器获取声音列表
+            filtered_voices = []
+
+            if selected_tts_server == "siliconflow":
+                # 获取硅基流动的声音列表
+                filtered_voices = voice.get_siliconflow_voices()
+            elif selected_tts_server == "chatterbox":
+                # 获取Chatterbox的声音列表
+                filtered_voices = voice.get_chatterbox_voices()
+            else:
+                # 获取Azure的声音列表
+                all_voices = voice.get_all_azure_voices(filter_locals=None)
+
+                # 根据选择的TTS服务器筛选声音
+                for v in all_voices:
+                    if selected_tts_server == "azure-tts-v2":
+                        # V2版本的声音名称中包含"v2"
+                        if "V2" in v:
+                            filtered_voices.append(v)
+                    else:
+                        # V1版本的声音名称中不包含"v2"
+                        if "V2" not in v:
+                            filtered_voices.append(v)
+
+            friendly_names = {
+                v: v.replace("Female", tr("Female"))
+                .replace("Male", tr("Male"))
+                .replace("Neural", "")
+                for v in filtered_voices
+            }
+
+            saved_voice_name = config.ui.get("voice_name", "")
             saved_voice_name_index = 0
 
-        voice_name = ""
-
-        # 确保有声音可选
-        if friendly_names:
-            selected_friendly_name = st.selectbox(
-                tr("Speech Synthesis"),
-                options=list(friendly_names.values()),
-                index=min(saved_voice_name_index, len(friendly_names) - 1)
-                if friendly_names
-                else 0,
-            )
-
-            voice_name = list(friendly_names.keys())[
-                list(friendly_names.values()).index(selected_friendly_name)
-            ]
-            params.voice_name = voice_name
-            config.ui["voice_name"] = voice_name
-        else:
-            # 如果没有声音可选，显示提示信息
-            st.warning(
-                tr(
-                    "No voices available for the selected TTS server. Please select another server."
-                )
-            )
-            params.voice_name = ""
-            config.ui["voice_name"] = ""
-
-        # Chatterbox TTS特殊设置
-        if selected_tts_server == "chatterbox" and friendly_names:
-            st.write("---")
-            st.write("**Chatterbox TTS Settings**")
-            
-            # 显示当前选择的声音类型
-            if voice_name.startswith("chatterbox:default:"):
-                st.info("🎙️ Using default Chatterbox voice")
-            elif voice_name.startswith("chatterbox:clone:"):
-                voice_base_name = voice_name.split(":")[-1].split("-")[0]
-                if voice_base_name == "Voice Clone":
-                    st.info("🎯 Voice cloning mode - add reference audio files to reference_audio/ folder")
-                else:
-                    st.success(f"🎭 Voice cloning with: {voice_base_name}")
-            
-            # 显示参考音频文件夹信息
-            import os
-            from app.utils import utils
-            reference_audio_dir = os.path.join(utils.root_dir(), "reference_audio")
-            
-            if not os.path.exists(reference_audio_dir):
-                with st.expander("📁 Voice Cloning Setup", expanded=False):
-                    st.warning("Reference audio folder not found. Create it to enable voice cloning:")
-                    st.code(f"mkdir {reference_audio_dir}")
-                    st.info("Add your reference audio files (.wav, .mp3, .flac, .m4a) to this folder for voice cloning.")
+            # 检查保存的声音是否在当前筛选的声音列表中
+            if saved_voice_name in friendly_names:
+                saved_voice_name_index = list(friendly_names.keys()).index(saved_voice_name)
             else:
-                audio_files = [f for f in os.listdir(reference_audio_dir) 
-                             if f.lower().endswith(('.wav', '.mp3', '.flac', '.m4a'))]
-                
-                with st.expander(f"📁 Voice Cloning Files ({len(audio_files)} found)", expanded=False):
-                    if audio_files:
-                        st.success(f"Found {len(audio_files)} reference audio files:")
-                        for file in audio_files:
-                            st.write(f"• {file}")
-                    else:
-                        st.info("No reference audio files found. Add .wav, .mp3, .flac, or .m4a files for voice cloning.")
-            
+                # 如果不在，则根据当前UI语言选择一个默认声音
+                for i, v in enumerate(filtered_voices):
+                    if v.lower().startswith(st.session_state["ui_language"].lower()):
+                        saved_voice_name_index = i
+                        break
 
+            # 如果没有找到匹配的声音，使用第一个声音
+            if saved_voice_name_index >= len(friendly_names) and friendly_names:
+                saved_voice_name_index = 0
 
-        # 只有在有声音可选时才显示试听按钮
-        if friendly_names and st.button(tr("Play Voice")):
-            play_content = params.video_subject
-            if not play_content:
-                play_content = params.video_script
-            if not play_content:
-                play_content = tr("Voice Example")
-            with st.spinner(tr("Synthesizing Voice")):
-                temp_dir = utils.storage_dir("temp", create=True)
-                audio_file = os.path.join(temp_dir, f"tmp-voice-{str(uuid4())}.mp3")
-                sub_maker = voice.tts(
-                    text=play_content,
-                    voice_name=voice_name,
-                    voice_rate=params.voice_rate,
-                    voice_file=audio_file,
-                    voice_volume=params.voice_volume,
+            voice_name = ""
+
+            # 确保有声音可选
+            if friendly_names:
+                selected_friendly_name = st.selectbox(
+                    tr("Speech Synthesis"),
+                    options=list(friendly_names.values()),
+                    index=min(saved_voice_name_index, len(friendly_names) - 1)
+                    if friendly_names
+                    else 0,
                 )
-                # if the voice file generation failed, try again with a default content.
-                if not sub_maker:
-                    play_content = "This is a example voice. if you hear this, the voice synthesis failed with the original content."
+
+                voice_name = list(friendly_names.keys())[
+                    list(friendly_names.values()).index(selected_friendly_name)
+                ]
+                params.voice_name = voice_name
+                config.ui["voice_name"] = voice_name
+            else:
+                # 如果没有声音可选，显示提示信息
+                st.warning(
+                    tr(
+                        "No voices available for the selected TTS server. Please select another server."
+                    )
+                )
+                params.voice_name = ""
+                config.ui["voice_name"] = ""
+
+            # Chatterbox TTS特殊设置
+            if selected_tts_server == "chatterbox" and friendly_names:
+                st.write("---")
+                st.write("**Chatterbox TTS Settings**")
+                
+                # 显示当前选择的声音类型
+                if voice_name.startswith("chatterbox:default:"):
+                    st.info("🎙️ Using default Chatterbox voice")
+                elif voice_name.startswith("chatterbox:clone:"):
+                    voice_base_name = voice_name.split(":")[-1].split("-")[0]
+                    if voice_base_name == "Voice Clone":
+                        st.info("🎯 Voice cloning mode - add reference audio files to reference_audio/ folder")
+                    else:
+                        st.success(f"🎭 Voice cloning with: {voice_base_name}")
+                
+                # 显示参考音频文件夹信息
+                reference_audio_dir = os.path.join(utils.root_dir(), "reference_audio")
+                
+                if not os.path.exists(reference_audio_dir):
+                    with st.expander("📁 Voice Cloning Setup", expanded=False):
+                        st.warning("Reference audio folder not found. Create it to enable voice cloning:")
+                        st.code(f"mkdir {reference_audio_dir}")
+                        st.info("Add your reference audio files (.wav, .mp3, .flac, .m4a) to this folder for voice cloning.")
+                else:
+                    audio_files = [f for f in os.listdir(reference_audio_dir) 
+                                 if f.lower().endswith(('.wav', '.mp3', '.flac', '.m4a'))]
+                    
+                    with st.expander(f"📁 Voice Cloning Files ({len(audio_files)} found)", expanded=False):
+                        if audio_files:
+                            st.success(f"Found {len(audio_files)} reference audio files:")
+                            for file in audio_files:
+                                st.write(f"• {file}")
+                        else:
+                            st.info("No reference audio files found. Add .wav, .mp3, .flac, or .m4a files for voice cloning.")
+
+            # 只有在有声音可选时才显示试听按钮
+            if friendly_names and st.button(tr("Play Voice")):
+                play_content = params.video_subject
+                if not play_content:
+                    play_content = params.video_script
+                if not play_content:
+                    play_content = tr("Voice Example")
+                with st.spinner(tr("Synthesizing Voice")):
+                    temp_dir = utils.storage_dir("temp", create=True)
+                    audio_file = os.path.join(temp_dir, f"tmp-voice-{str(uuid4())}.mp3")
                     sub_maker = voice.tts(
                         text=play_content,
                         voice_name=voice_name,
@@ -1014,372 +1007,374 @@ with middle_panel:
                         voice_file=audio_file,
                         voice_volume=params.voice_volume,
                     )
-
-                if sub_maker and os.path.exists(audio_file):
-                    st.audio(audio_file, format="audio/mp3")
-                    if os.path.exists(audio_file):
-                        os.remove(audio_file)
-
-        # 当选择V2版本或者声音是V2声音时，显示服务区域和API key输入框
-        if selected_tts_server == "azure-tts-v2" or (
-            voice_name and voice.is_azure_v2_voice(voice_name)
-        ):
-            saved_azure_speech_region = config.azure.get("speech_region", "")
-            saved_azure_speech_key = config.azure.get("speech_key", "")
-            azure_speech_region = st.text_input(
-                tr("Speech Region"),
-                value=saved_azure_speech_region,
-                key="azure_speech_region_input",
-            )
-            azure_speech_key = st.text_input(
-                tr("Speech Key"),
-                value=saved_azure_speech_key,
-                type="password",
-                key="azure_speech_key_input",
-            )
-            config.azure["speech_region"] = azure_speech_region
-            config.azure["speech_key"] = azure_speech_key
-
-        # 当选择硅基流动时，显示API key输入框和说明信息
-        if selected_tts_server == "siliconflow" or (
-            voice_name and voice.is_siliconflow_voice(voice_name)
-        ):
-            saved_siliconflow_api_key = config.siliconflow.get("api_key", "")
-
-            siliconflow_api_key = st.text_input(
-                tr("SiliconFlow API Key"),
-                value=saved_siliconflow_api_key,
-                type="password",
-                key="siliconflow_api_key_input",
-            )
-
-            # 显示硅基流动的说明信息
-            st.info(
-                tr("SiliconFlow TTS Settings")
-                + ":\n"
-                + "- "
-                + tr("Speed: Range [0.25, 4.0], default is 1.0")
-                + "\n"
-                + "- "
-                + tr("Volume: Uses Speech Volume setting, default 1.0 maps to gain 0")
-            )
-
-            config.siliconflow["api_key"] = siliconflow_api_key
-
-        params.voice_volume = st.selectbox(
-            tr("Speech Volume"),
-            options=[0.6, 0.8, 1.0, 1.2, 1.5, 2.0, 3.0, 4.0, 5.0],
-            index=2,
-        )
-
-        params.voice_rate = st.selectbox(
-            tr("Speech Rate"),
-            options=[0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.5, 1.8, 2.0],
-            index=2,
-        )
-
-        bgm_options = [
-            (tr("No Background Music"), ""),
-            (tr("Random Background Music"), "random"),
-            (tr("Custom Background Music"), "custom"),
-        ]
-        selected_index = st.selectbox(
-            tr("Background Music"),
-            index=1,
-            options=range(
-                len(bgm_options)
-            ),  # Use the index as the internal option value
-            format_func=lambda x: bgm_options[x][
-                0
-            ],  # The label is displayed to the user
-        )
-        # Get the selected background music type
-        params.bgm_type = bgm_options[selected_index][1]
-
-        # Show or hide components based on the selection
-        if params.bgm_type == "custom":
-            custom_bgm_file = st.text_input(
-                tr("Custom Background Music File"), key="custom_bgm_file_input"
-            )
-            if custom_bgm_file and os.path.exists(custom_bgm_file):
-                params.bgm_file = custom_bgm_file
-                # st.write(f":red[已选择自定义背景音乐]：**{custom_bgm_file}**")
-        params.bgm_volume = st.selectbox(
-            tr("Background Music Volume"),
-            options=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
-            index=2,
-        )
-
-with right_panel:
-    with st.container(border=True):
-        st.write(tr("Subtitle Settings"))
-        params.subtitle_enabled = st.checkbox(tr("Enable Subtitles"), value=True)
-        font_names = get_all_fonts()
-        saved_font_name = config.ui.get("font_name", "MicrosoftYaHeiBold.ttc")
-        saved_font_name_index = 0
-        if saved_font_name in font_names:
-            saved_font_name_index = font_names.index(saved_font_name)
-        params.font_name = st.selectbox(
-            tr("Font"), font_names, index=saved_font_name_index
-        )
-        config.ui["font_name"] = params.font_name
-
-        subtitle_positions = [
-            (tr("Top"), "top"),
-            (tr("Center"), "center"),
-            (tr("Bottom"), "bottom"),
-            (tr("Custom"), "custom"),
-        ]
-        selected_index = st.selectbox(
-            tr("Position"),
-            index=2,
-            options=range(len(subtitle_positions)),
-            format_func=lambda x: subtitle_positions[x][0],
-        )
-        params.subtitle_position = subtitle_positions[selected_index][1]
-
-        if params.subtitle_position == "custom":
-            custom_position = st.text_input(
-                tr("Custom Position (% from top)"),
-                value="70.0",
-                key="custom_position_input",
-            )
-            try:
-                params.custom_position = float(custom_position)
-                if params.custom_position < 0 or params.custom_position > 100:
-                    st.error(tr("Please enter a value between 0 and 100"))
-            except ValueError:
-                st.error(tr("Please enter a valid number"))
-
-        font_cols = st.columns([0.3, 0.7])
-        with font_cols[0]:
-            saved_text_fore_color = config.ui.get("text_fore_color", "#FFFFFF")
-            params.text_fore_color = st.color_picker(
-                tr("Font Color"), saved_text_fore_color
-            )
-            config.ui["text_fore_color"] = params.text_fore_color
-
-        with font_cols[1]:
-            saved_font_size = config.ui.get("font_size", 60)
-            params.font_size = st.slider(tr("Font Size"), 30, 100, saved_font_size)
-            config.ui["font_size"] = params.font_size
-
-        stroke_cols = st.columns([0.3, 0.7])
-        with stroke_cols[0]:
-            params.stroke_color = st.color_picker(tr("Stroke Color"), "#000000")
-        with stroke_cols[1]:
-            params.stroke_width = st.slider(tr("Stroke Width"), 0.0, 10.0, 1.5)
-
-        # Word highlighting settings
-        st.write("**Word Highlighting**")
-        saved_enable_word_highlighting = config.ui.get("enable_word_highlighting", False)
-        params.enable_word_highlighting = st.checkbox(
-            tr("Enable Word Highlighting (If unchecked, the settings below will not take effect)"), 
-            value=saved_enable_word_highlighting
-        )
-        config.ui["enable_word_highlighting"] = params.enable_word_highlighting
-        
-        if params.enable_word_highlighting:
-            highlight_cols = st.columns([0.3, 0.7])
-            with highlight_cols[0]:
-                saved_highlight_color = config.ui.get("highlight_color", "#ff0000")
-                params.word_highlight_color = st.color_picker(
-                    tr("Highlight Color"), saved_highlight_color
-                )
-                config.ui["highlight_color"] = params.word_highlight_color
-            
-            with highlight_cols[1]:
-                saved_max_chars_per_line = config.ui.get("max_chars_per_line", 40)
-                params.max_chars_per_line = st.slider(
-                    tr("Max Characters Per Line"), 20, 80, saved_max_chars_per_line
-                )
-                config.ui["max_chars_per_line"] = params.max_chars_per_line
-            
-            saved_max_lines_per_subtitle = config.ui.get("max_lines_per_subtitle", 2)
-            params.max_lines_per_subtitle = st.slider(
-                tr("Max Lines Per Subtitle"), 1, 4, saved_max_lines_per_subtitle
-            )
-            config.ui["max_lines_per_subtitle"] = params.max_lines_per_subtitle
-        else:
-            # Set default values when word highlighting is disabled
-            params.word_highlight_color = config.ui.get("highlight_color", "#ff0000")
-            params.max_chars_per_line = config.ui.get("max_chars_per_line", 40)
-            params.max_lines_per_subtitle = config.ui.get("max_lines_per_subtitle", 2)
-
-start_button = st.button(tr("Generate Video"), use_container_width=True, type="primary")
-if start_button:
-    config.save_config()
-    task_id = str(uuid4())
-    if not params.video_subject and not params.video_script:
-        st.error(tr("Video Script and Subject Cannot Both Be Empty"))
-        scroll_to_bottom()
-        st.stop()
-
-    if params.video_source not in ["pexels", "pixabay", "local"]:
-        st.error(tr("Please Select a Valid Video Source"))
-        scroll_to_bottom()
-        st.stop()
-
-    if params.video_source == "pexels" and not config.app.get("pexels_api_keys", ""):
-        st.error(tr("Please Enter the Pexels API Key"))
-        scroll_to_bottom()
-        st.stop()
-
-    if params.video_source == "pixabay" and not config.app.get("pixabay_api_keys", ""):
-        st.error(tr("Please Enter the Pixabay API Key"))
-        scroll_to_bottom()
-        st.stop()
-
-    if uploaded_files:
-        local_videos_dir = utils.storage_dir("local_videos", create=True)
-        for file in uploaded_files:
-            file_path = os.path.join(local_videos_dir, f"{file.file_id}_{file.name}")
-            with open(file_path, "wb") as f:
-                f.write(file.getbuffer())
-                m = MaterialInfo()
-                m.provider = "local"
-                m.url = file_path
-                if not params.video_materials:
-                    params.video_materials = []
-                params.video_materials.append(m)
-
-    log_container = st.empty()
-    log_records = []
-
-    def log_received(msg):
-        if config.ui["hide_log"]:
-            return
-        with log_container:
-            log_records.append(msg)
-            st.code("\n".join(log_records))
-
-    logger.add(log_received)
-
-    st.toast(tr("Generating Video"))
-    logger.info(tr("Start Generating Video"))
-    logger.info(utils.to_json(params))
-    scroll_to_bottom()
-
-    result = tm.start(task_id=task_id, params=params)
-    if not result or "videos" not in result:
-        st.error(tr("Video Generation Failed"))
-        logger.error(tr("Video Generation Failed"))
-        scroll_to_bottom()
-        st.stop()
-
-    video_files = result.get("videos", [])
-
-    # ── Persist for template overlay (survives Streamlit rerenders) ──
-    st.session_state["last_video_files"] = video_files
-    st.session_state["last_task_id"] = task_id
-
-    st.success(tr("Video Generation Completed"))
-    try:
-        if video_files:
-            player_cols = st.columns(len(video_files) * 2 + 1)
-            for i, url in enumerate(video_files):
-                player_cols[i * 2 + 1].video(url)
-    except Exception:
-        pass
-
-    open_task_folder(task_id)
-    logger.info(tr("Video Generation Completed"))
-    scroll_to_bottom()
-
-# ── Template Overlay Section (outside if start_button so button clicks work) ──
-if st.session_state.get("last_video_files"):
-    _video_files = st.session_state["last_video_files"]
-    _task_id = st.session_state.get("last_task_id", "default")
-
-    st.divider()
-    st.markdown("### 🎬 Şablona Oturtur")
-
-    template_path = os.path.join(utils.root_dir(), "resource", "public", "template_frame.jpg")
-    template_exists = os.path.exists(template_path)
-
-    col_tmpl_img, col_tmpl_btn = st.columns([1, 2])
-    with col_tmpl_img:
-        if template_exists:
-            st.image(template_path, caption="Aktif Şablon", use_container_width=True)
-        else:
-            st.warning("⚠️ Şablon dosyası bulunamadı: resource/public/template_frame.jpg")
-
-    with col_tmpl_btn:
-        st.markdown("#### Gone Medya Şablonu")
-        st.markdown("Oluşturulan videoyu şablonun siyah alanına oturtarak markalı video üretir.")
-
-        # Video scale slider
-        video_scale = st.slider(
-            "📐 Video boyutu (sorun olursa küçült)",
-            min_value=0.70,
-            max_value=1.00,
-            value=1.00,
-            step=0.01,
-            format="%.0f%%",
-            help="Normalde 100%'de bırak. Altyazılar şablonun altına giriyorsa 85-90'a düşür.",
-            key="tmpl_video_scale",
-        )
-
-        # Custom template upload
-        custom_template = st.file_uploader(
-            "Farklı bir şablon yükle (isteğe bağlı)",
-            type=["jpg", "jpeg", "png"],
-            key="tmpl_upload",
-        )
-
-        apply_btn = st.button(
-            "🖼️ Şablona Oturtur ve İndir",
-            use_container_width=True,
-            type="primary",
-            key="apply_tmpl_btn",
-            disabled=not template_exists and custom_template is None,
-        )
-
-        if apply_btn:
-            # Determine which template file to use
-            active_template = template_path
-            if custom_template is not None:
-                import tempfile as _tempfile
-                _suffix = ".jpg" if custom_template.name.lower().endswith((".jpg", ".jpeg")) else ".png"
-                _tmp = _tempfile.NamedTemporaryFile(delete=False, suffix=_suffix)
-                _tmp.write(custom_template.read())
-                _tmp.close()
-                active_template = _tmp.name
-
-            branded_videos = []
-            progress = st.progress(0, text="Şablon uygulanıyor...")
-            for idx, video_path in enumerate(_video_files):
-                base, ext = os.path.splitext(video_path)
-                branded_path = f"{base}_branded{ext}"
-                progress.progress(
-                    int((idx / len(_video_files)) * 80),
-                    text=f"Video {idx + 1}/{len(_video_files)} işleniyor...",
-                )
-                success = template_overlay.apply_template(
-                    input_video_path=video_path,
-                    output_video_path=branded_path,
-                    template_path=active_template,
-                    video_scale=video_scale,
-                )
-                if success:
-                    branded_videos.append(branded_path)
-                else:
-                    st.error(f"❌ Video {idx + 1} için şablon uygulanamadı.")
-
-            progress.progress(100, text="Tamamlandı!")
-
-            if branded_videos:
-                st.success(f"✅ {len(branded_videos)} video şablona oturtuldu!")
-                for i, bv in enumerate(branded_videos):
-                    st.video(bv)
-                    with open(bv, "rb") as f:
-                        fname = os.path.basename(bv)
-                        st.download_button(
-                            label=f"⬇️ Video {i + 1} İndir ({fname})",
-                            data=f,
-                            file_name=fname,
-                            mime="video/mp4",
-                            key=f"dl_branded_{i}",
+                    if not sub_maker:
+                        play_content = "This is a example voice. if you hear this, the voice synthesis failed with the original content."
+                        sub_maker = voice.tts(
+                            text=play_content,
+                            voice_name=voice_name,
+                            voice_rate=params.voice_rate,
+                            voice_file=audio_file,
+                            voice_volume=params.voice_volume,
                         )
+
+                    if sub_maker and os.path.exists(audio_file):
+                        st.audio(audio_file, format="audio/mp3")
+                        if os.path.exists(audio_file):
+                            os.remove(audio_file)
+
+            if selected_tts_server == "azure-tts-v2" or (
+                voice_name and voice.is_azure_v2_voice(voice_name)
+            ):
+                saved_azure_speech_region = config.azure.get("speech_region", "")
+                saved_azure_speech_key = config.azure.get("speech_key", "")
+                azure_speech_region = st.text_input(
+                    tr("Speech Region"),
+                    value=saved_azure_speech_region,
+                    key="azure_speech_region_input",
+                )
+                azure_speech_key = st.text_input(
+                    tr("Speech Key"),
+                    value=saved_azure_speech_key,
+                    type="password",
+                    key="azure_speech_key_input",
+                )
+                config.azure["speech_region"] = azure_speech_region
+                config.azure["speech_key"] = azure_speech_key
+
+            if selected_tts_server == "siliconflow" or (
+                voice_name and voice.is_siliconflow_voice(voice_name)
+            ):
+                saved_siliconflow_api_key = config.siliconflow.get("api_key", "")
+
+                siliconflow_api_key = st.text_input(
+                    tr("SiliconFlow API Key"),
+                    value=saved_siliconflow_api_key,
+                    type="password",
+                    key="siliconflow_api_key_input",
+                )
+
+                st.info(
+                    tr("SiliconFlow TTS Settings")
+                    + ":\n"
+                    + "- "
+                    + tr("Speed: Range [0.25, 4.0], default is 1.0")
+                    + "\n"
+                    + "- "
+                    + tr("Volume: Uses Speech Volume setting, default 1.0 maps to gain 0")
+                )
+
+                config.siliconflow["api_key"] = siliconflow_api_key
+
+            params.voice_volume = st.selectbox(
+                tr("Speech Volume"),
+                options=[0.6, 0.8, 1.0, 1.2, 1.5, 2.0, 3.0, 4.0, 5.0],
+                index=2,
+            )
+
+            params.voice_rate = st.selectbox(
+                tr("Speech Rate"),
+                options=[0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.5, 1.8, 2.0],
+                index=2,
+            )
+
+            bgm_options = [
+                (tr("No Background Music"), ""),
+                (tr("Random Background Music"), "random"),
+                (tr("Custom Background Music"), "custom"),
+            ]
+            selected_index = st.selectbox(
+                tr("Background Music"),
+                index=1,
+                options=range(
+                    len(bgm_options)
+                ),
+                format_func=lambda x: bgm_options[x][0],
+            )
+            params.bgm_type = bgm_options[selected_index][1]
+
+            if params.bgm_type == "custom":
+                custom_bgm_file = st.text_input(
+                    tr("Custom Background Music File"), key="custom_bgm_file_input"
+                )
+                if custom_bgm_file and os.path.exists(custom_bgm_file):
+                    params.bgm_file = custom_bgm_file
+            params.bgm_volume = st.selectbox(
+                tr("Background Music Volume"),
+                options=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+                index=2,
+            )
+
+    with right_settings:
+        with st.container(border=True):
+            st.write(f"### {tr('Subtitle Settings')}")
+            params.subtitle_enabled = st.checkbox(tr("Enable Subtitles"), value=True)
+            font_names = get_all_fonts()
+            saved_font_name = config.ui.get("font_name", "MicrosoftYaHeiBold.ttc")
+            saved_font_name_index = 0
+            if saved_font_name in font_names:
+                saved_font_name_index = font_names.index(saved_font_name)
+            params.font_name = st.selectbox(
+                tr("Font"), font_names, index=saved_font_name_index
+            )
+            config.ui["font_name"] = params.font_name
+
+            subtitle_positions = [
+                (tr("Top"), "top"),
+                (tr("Center"), "center"),
+                (tr("Bottom"), "bottom"),
+                (tr("Custom"), "custom"),
+            ]
+            # Default to Center (index=1)
+            selected_index = st.selectbox(
+                tr("Position"),
+                index=1,
+                options=range(len(subtitle_positions)),
+                format_func=lambda x: subtitle_positions[x][0],
+            )
+            params.subtitle_position = subtitle_positions[selected_index][1]
+
+            if params.subtitle_position == "custom":
+                custom_position = st.text_input(
+                    tr("Custom Position (% from top)"),
+                    value="50.0",
+                    key="custom_position_input",
+                )
+                try:
+                    params.custom_position = float(custom_position)
+                    if params.custom_position < 0 or params.custom_position > 100:
+                        st.error(tr("Please enter a value between 0 and 100"))
+                except ValueError:
+                    st.error(tr("Please enter a valid number"))
+
+            font_cols = st.columns([0.3, 0.7])
+            with font_cols[0]:
+                saved_text_fore_color = config.ui.get("text_fore_color", "#FFFFFF")
+                params.text_fore_color = st.color_picker(
+                    tr("Font Color"), saved_text_fore_color
+                )
+                config.ui["text_fore_color"] = params.text_fore_color
+
+            with font_cols[1]:
+                saved_font_size = config.ui.get("font_size", 60)
+                params.font_size = st.slider(tr("Font Size"), 30, 100, saved_font_size)
+                config.ui["font_size"] = params.font_size
+
+            stroke_cols = st.columns([0.3, 0.7])
+            with stroke_cols[0]:
+                params.stroke_color = st.color_picker(tr("Stroke Color"), "#000000")
+            with stroke_cols[1]:
+                params.stroke_width = st.slider(tr("Stroke Width"), 0.0, 10.0, 1.5)
+
+            # Word highlighting settings
+            st.write("**Word Highlighting**")
+            saved_enable_word_highlighting = config.ui.get("enable_word_highlighting", False)
+            params.enable_word_highlighting = st.checkbox(
+                tr("Enable Word Highlighting (If unchecked, the settings below will not take effect)"), 
+                value=saved_enable_word_highlighting
+            )
+            config.ui["enable_word_highlighting"] = params.enable_word_highlighting
+            
+            if params.enable_word_highlighting:
+                highlight_cols = st.columns([0.3, 0.7])
+                with highlight_cols[0]:
+                    saved_highlight_color = config.ui.get("highlight_color", "#ff0000")
+                    params.word_highlight_color = st.color_picker(
+                        tr("Highlight Color"), saved_highlight_color
+                    )
+                    config.ui["highlight_color"] = params.word_highlight_color
+                
+                with highlight_cols[1]:
+                    saved_max_chars_per_line = config.ui.get("max_chars_per_line", 40)
+                    params.max_chars_per_line = st.slider(
+                        tr("Max Characters Per Line"), 20, 80, saved_max_chars_per_line
+                    )
+                    config.ui["max_chars_per_line"] = params.max_chars_per_line
+                
+                saved_max_lines_per_subtitle = config.ui.get("max_lines_per_subtitle", 2)
+                params.max_lines_per_subtitle = st.slider(
+                    tr("Max Lines Per Subtitle"), 1, 4, saved_max_lines_per_subtitle
+                )
+                config.ui["max_lines_per_subtitle"] = params.max_lines_per_subtitle
+            else:
+                # Set default values when word highlighting is disabled
+                params.word_highlight_color = config.ui.get("highlight_color", "#ff0000")
+                params.max_chars_per_line = config.ui.get("max_chars_per_line", 40)
+                params.max_lines_per_subtitle = config.ui.get("max_lines_per_subtitle", 2)
+
+with main_action_container:
+    start_button = st.button(tr("Generate Video"), use_container_width=True, type="primary")
+    if start_button:
+        config.save_config()
+        task_id = str(uuid4())
+        if not params.video_subject and not params.video_script:
+            st.error(tr("Video Script and Subject Cannot Both Be Empty"))
+            scroll_to_bottom()
+            st.stop()
+
+        if params.video_source not in ["pexels", "pixabay", "local"]:
+            st.error(tr("Please Select a Valid Video Source"))
+            scroll_to_bottom()
+            st.stop()
+
+        if params.video_source == "pexels" and not config.app.get("pexels_api_keys", ""):
+            st.error(tr("Please Enter the Pexels API Key"))
+            scroll_to_bottom()
+            st.stop()
+
+        if params.video_source == "pixabay" and not config.app.get("pixabay_api_keys", ""):
+            st.error(tr("Please Enter the Pixabay API Key"))
+            scroll_to_bottom()
+            st.stop()
+
+        if uploaded_files:
+            local_videos_dir = utils.storage_dir("local_videos", create=True)
+            for file in uploaded_files:
+                file_path = os.path.join(local_videos_dir, f"{file.file_id}_{file.name}")
+                with open(file_path, "wb") as f:
+                    f.write(file.getbuffer())
+                    m = MaterialInfo()
+                    m.provider = "local"
+                    m.url = file_path
+                    if not params.video_materials:
+                        params.video_materials = []
+                    params.video_materials.append(m)
+
+        log_container = st.empty()
+        log_records = []
+
+        def log_received(msg):
+            if config.ui["hide_log"]:
+                return
+            with log_container:
+                log_records.append(msg)
+                st.code("\n".join(log_records))
+
+        logger.add(log_received)
+
+        st.toast(tr("Generating Video"))
+        logger.info(tr("Start Generating Video"))
+        logger.info(utils.to_json(params))
+        scroll_to_bottom()
+
+        result = tm.start(task_id=task_id, params=params)
+        if not result or "videos" not in result:
+            st.error(tr("Video Generation Failed"))
+            logger.error(tr("Video Generation Failed"))
+            scroll_to_bottom()
+            st.stop()
+
+        video_files = result.get("videos", [])
+
+        # ── Persist for template overlay (survives Streamlit rerenders) ──
+        st.session_state["last_video_files"] = video_files
+        st.session_state["last_task_id"] = task_id
+
+        st.success(tr("Video Generation Completed"))
+        try:
+            if video_files:
+                player_cols = st.columns(len(video_files) * 2 + 1)
+                for i, url in enumerate(video_files):
+                    player_cols[i * 2 + 1].video(url)
+        except Exception:
+            pass
+
+        open_task_folder(task_id)
+        logger.info(tr("Video Generation Completed"))
+        scroll_to_bottom()
+
+    # ── Template Overlay Section (inside main_tab) ──
+    if st.session_state.get("last_video_files"):
+        _video_files = st.session_state["last_video_files"]
+        _task_id = st.session_state.get("last_task_id", "default")
+
+        st.divider()
+        st.markdown("### 🎬 Şablona Oturtur")
+
+        template_path = os.path.join(utils.root_dir(), "resource", "public", "template_frame.jpg")
+        template_exists = os.path.exists(template_path)
+
+        col_tmpl_img, col_tmpl_btn = st.columns([1, 2])
+        with col_tmpl_img:
+            if template_exists:
+                st.image(template_path, caption="Aktif Şablon", use_container_width=True)
+            else:
+                st.warning("⚠️ Şablon dosyası bulunamadı: resource/public/template_frame.jpg")
+
+        with col_tmpl_btn:
+            st.markdown("#### Gone Medya Şablonu")
+            st.markdown("Oluşturulan videoyu şablonun siyah alanına oturtarak markalı video üretir.")
+
+            # Video scale slider
+            video_scale = st.slider(
+                "📐 Video boyutu (sorun olursa küçült)",
+                min_value=0.70,
+                max_value=1.00,
+                value=1.00,
+                step=0.01,
+                format="%.0f%%",
+                help="Normalde 100%'de bırak. Altyazılar şablonun altına giriyorsa 85-90'a düşür.",
+                key="tmpl_video_scale",
+            )
+
+            # Custom template upload
+            custom_template = st.file_uploader(
+                "Farklı bir şablon yükle (isteğe bağlı)",
+                type=["jpg", "jpeg", "png"],
+                key="tmpl_upload",
+            )
+
+            apply_btn = st.button(
+                "🖼️ Şablona Oturtur ve İndir",
+                use_container_width=True,
+                type="primary",
+                key="apply_tmpl_btn",
+                disabled=not template_exists and custom_template is None,
+            )
+
+            if apply_btn:
+                active_template = template_path
+                if custom_template is not None:
+                    import tempfile as _tempfile
+                    _suffix = ".jpg" if custom_template.name.lower().endswith((".jpg", ".jpeg")) else ".png"
+                    _tmp = _tempfile.NamedTemporaryFile(delete=False, suffix=_suffix)
+                    _tmp.write(custom_template.read())
+                    _tmp.close()
+                    active_template = _tmp.name
+
+                branded_videos = []
+                progress = st.progress(0, text="Şablon uygulanıyor...")
+                for idx, video_path in enumerate(_video_files):
+                    base, ext = os.path.splitext(video_path)
+                    branded_path = f"{base}_branded{ext}"
+                    progress.progress(
+                        int((idx / len(_video_files)) * 80),
+                        text=f"Video {idx + 1}/{len(_video_files)} işleniyor...",
+                    )
+                    success = template_overlay.apply_template(
+                        input_video_path=video_path,
+                        output_video_path=branded_path,
+                        template_path=active_template,
+                        video_scale=video_scale,
+                    )
+                    if success:
+                        branded_videos.append(branded_path)
+                    else:
+                        st.error(f"❌ Video {idx + 1} için şablon uygulanamadı.")
+
+                progress.progress(100, text="Tamamlandı!")
+
+                if branded_videos:
+                    st.success(f"✅ {len(branded_videos)} video şablona oturtuldu!")
+                    for i, bv in enumerate(branded_videos):
+                        st.video(bv)
+                        with open(bv, "rb") as f:
+                            fname = os.path.basename(bv)
+                            st.download_button(
+                                label=f"⬇️ Video {i + 1} İndir ({fname})",
+                                data=f,
+                                file_name=fname,
+                                mime="video/mp4",
+                                key=f"dl_branded_{i}",
+                            )
 
 config.save_config()
