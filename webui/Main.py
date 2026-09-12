@@ -1288,93 +1288,83 @@ with main_action_container:
         _task_id = st.session_state.get("last_task_id", "default")
 
         st.divider()
-        st.markdown("### 🎬 Şablona Oturtur")
+        st.markdown("### 🎬 Video Şablonu Giydir")
+        st.write("Videoyu giydirmek istediğiniz şablonu seçin:")
 
-        template_path = os.path.join(utils.root_dir(), "resource", "public", "template_frame.jpg")
-        template_exists = os.path.exists(template_path)
+        gonebet_template = os.path.join(utils.root_dir(), "resource", "public", "template_gonebet.jpg")
+        if not os.path.exists(gonebet_template):
+            gonebet_template = os.path.join(utils.root_dir(), "resource", "public", "template_frame.jpg")
 
-        col_tmpl_img, col_tmpl_btn = st.columns([1, 2])
-        with col_tmpl_img:
-            if template_exists:
-                st.image(template_path, caption="Aktif Şablon", use_container_width=True)
-            else:
-                st.warning("⚠️ Şablon dosyası bulunamadı: resource/public/template_frame.jpg")
+        betkartel_template = os.path.join(utils.root_dir(), "resource", "public", "template_betkartel.jpg")
 
-        with col_tmpl_btn:
-            st.markdown("#### Gone Medya Şablonu")
-            st.markdown("Oluşturulan videoyu şablonun siyah alanına oturtarak markalı video üretir.")
+        tmpl_col1, tmpl_col2 = st.columns(2)
 
-            # Video scale slider
-            video_scale = st.slider(
-                "📐 Video boyutu (sorun olursa küçült)",
-                min_value=0.70,
-                max_value=1.00,
-                value=1.00,
-                step=0.01,
-                format="%.0f%%",
-                help="Normalde 100%'de bırak. Altyazılar şablonun altına giriyorsa 85-90'a düşür.",
-                key="tmpl_video_scale",
-            )
-
-            # Custom template upload
-            custom_template = st.file_uploader(
-                "Farklı bir şablon yükle (isteğe bağlı)",
-                type=["jpg", "jpeg", "png"],
-                key="tmpl_upload",
-            )
-
-            apply_btn = st.button(
-                "🖼️ Şablona Oturtur ve İndir",
+        with tmpl_col1:
+            if os.path.exists(gonebet_template):
+                st.image(gonebet_template, caption="Gonebet Şablonu (Yeşil)", use_container_width=True)
+            apply_gonebet = st.button(
+                "🟢 Gonebet Şablonuna Giydir",
                 use_container_width=True,
                 type="primary",
-                key="apply_tmpl_btn",
-                disabled=not template_exists and custom_template is None,
+                key=f"apply_gonebet_{_task_id}",
             )
 
-            if apply_btn:
-                active_template = template_path
-                if custom_template is not None:
-                    import tempfile as _tempfile
-                    _suffix = ".jpg" if custom_template.name.lower().endswith((".jpg", ".jpeg")) else ".png"
-                    _tmp = _tempfile.NamedTemporaryFile(delete=False, suffix=_suffix)
-                    _tmp.write(custom_template.read())
-                    _tmp.close()
-                    active_template = _tmp.name
+        with tmpl_col2:
+            if os.path.exists(betkartel_template):
+                st.image(betkartel_template, caption="Betkartel Şablonu (Kırmızı)", use_container_width=True)
+            apply_betkartel = st.button(
+                "🔴 Betkartel Şablonuna Giydir",
+                use_container_width=True,
+                type="primary",
+                key=f"apply_betkartel_{_task_id}",
+            )
 
-                branded_videos = []
-                progress = st.progress(0, text="Şablon uygulanıyor...")
-                for idx, video_path in enumerate(_video_files):
-                    base, ext = os.path.splitext(video_path)
-                    branded_path = f"{base}_branded{ext}"
-                    progress.progress(
-                        int((idx / len(_video_files)) * 80),
-                        text=f"Video {idx + 1}/{len(_video_files)} işleniyor...",
-                    )
-                    success = template_overlay.apply_template(
-                        input_video_path=video_path,
-                        output_video_path=branded_path,
-                        template_path=active_template,
-                        video_scale=video_scale,
-                    )
-                    if success:
-                        branded_videos.append(branded_path)
-                    else:
-                        st.error(f"❌ Video {idx + 1} için şablon uygulanamadı.")
+        selected_template_path = None
+        selected_template_name = ""
 
-                progress.progress(100, text="Tamamlandı!")
+        if apply_gonebet:
+            selected_template_path = gonebet_template
+            selected_template_name = "Gonebet"
+        elif apply_betkartel:
+            selected_template_path = betkartel_template
+            selected_template_name = "Betkartel"
 
-                if branded_videos:
-                    st.success(f"✅ {len(branded_videos)} video şablona oturtuldu!")
-                    for i, bv in enumerate(branded_videos):
-                        st.video(bv)
-                        with open(bv, "rb") as f:
-                            fname = os.path.basename(bv)
-                            st.download_button(
-                                label=f"⬇️ Video {i + 1} İndir ({fname})",
-                                data=f,
-                                file_name=fname,
-                                mime="video/mp4",
-                                key=f"dl_branded_{i}",
-                            )
+        if selected_template_path:
+            branded_videos = []
+            progress = st.progress(0, text=f"{selected_template_name} şablonu uygulanıyor...")
+            for idx, video_path in enumerate(_video_files):
+                base, ext = os.path.splitext(video_path)
+                branded_path = f"{base}_{selected_template_name.lower()}{ext}"
+                progress.progress(
+                    int((idx / len(_video_files)) * 80),
+                    text=f"Video {idx + 1}/{len(_video_files)} ({selected_template_name}) işleniyor...",
+                )
+                success = template_overlay.apply_template(
+                    input_video_path=video_path,
+                    output_video_path=branded_path,
+                    template_path=selected_template_path,
+                    video_scale=1.0,
+                )
+                if success:
+                    branded_videos.append(branded_path)
+                else:
+                    st.error(f"❌ Video {idx + 1} için {selected_template_name} şablonu uygulanamadı.")
+
+            progress.progress(100, text="Tamamlandı!")
+
+            if branded_videos:
+                st.success(f"✅ {len(branded_videos)} video {selected_template_name} şablonuna başarıyla oturtuldu!")
+                for i, bv in enumerate(branded_videos):
+                    st.video(bv)
+                    with open(bv, "rb") as f:
+                        fname = os.path.basename(bv)
+                        st.download_button(
+                            label=f"⬇️ {selected_template_name} Video {i + 1} İndir ({fname})",
+                            data=f,
+                            file_name=fname,
+                            mime="video/mp4",
+                            key=f"dl_branded_{selected_template_name.lower()}_{i}",
+                        )
 
 config.save_config()
+
