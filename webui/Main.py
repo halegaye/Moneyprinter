@@ -67,7 +67,7 @@ if "video_script" not in st.session_state:
 if "video_terms" not in st.session_state:
     st.session_state["video_terms"] = ""
 if "ui_language" not in st.session_state:
-    st.session_state["ui_language"] = config.ui.get("language", system_locale)
+    st.session_state["ui_language"] = config.ui.get("language", "tr")
 
 # 加载语言文件
 locales = utils.load_locales(i18n_dir)
@@ -83,11 +83,11 @@ with lang_col:
     selected_index = 0
     for i, code in enumerate(locales.keys()):
         display_languages.append(f"{code} - {locales[code].get('Language')}")
-        if code == st.session_state.get("ui_language", ""):
+        if code == st.session_state.get("ui_language", "tr"):
             selected_index = i
 
     selected_language = st.selectbox(
-        "Language / 语言",
+        "Dil Seçimi / Language",
         options=display_languages,
         index=selected_index,
         key="top_language_selector",
@@ -99,12 +99,13 @@ with lang_col:
         config.ui["language"] = code
 
 support_locales = [
+    "tr-TR",
+    "en-US",
+    "de-DE",
+    "fr-FR",
     "zh-CN",
     "zh-HK",
     "zh-TW",
-    "de-DE",
-    "en-US",
-    "fr-FR",
     "vi-VN",
     "th-TH",
 ]
@@ -576,7 +577,7 @@ with settings_tab:
 
             if params.video_source == "local":
                 uploaded_files = st.file_uploader(
-                    "Upload Local Files",
+                    tr("Upload Local Files"),
                     type=["mp4", "mov", "avi", "flv", "mkv", "jpg", "jpeg", "png"],
                     accept_multiple_files=True,
                 )
@@ -674,9 +675,9 @@ with settings_tab:
                     
                     # Semantic Search Model
                     semantic_models = [
-                        ("MPNet Base V2 (Recommended)", "all-mpnet-base-v2"),
-                        ("MiniLM L6 V2 (Faster)", "all-MiniLM-L6-v2"),
-                        ("MiniLM L12 V2 (Balanced)", "all-MiniLM-L12-v2"),
+                        (tr("MPNet Base V2 (Recommended)"), "all-mpnet-base-v2"),
+                        (tr("MiniLM L6 V2 (Faster)"), "all-MiniLM-L6-v2"),
+                        (tr("MiniLM L12 V2 (Balanced)"), "all-MiniLM-L12-v2"),
                     ]
                     
                     # Find the index of the saved semantic model
@@ -756,9 +757,9 @@ with settings_tab:
                             
                             # Image Similarity Model - use config default
                             image_models = [
-                                ("CLIP ViT-B/32 (Recommended)", "clip-vit-base-patch32"),
-                                ("CLIP ViT-B/16 (Higher Quality)", "clip-vit-base-patch16"),
-                                ("CLIP ViT-L/14 (Best Quality)", "clip-vit-large-patch14"),
+                                (tr("CLIP ViT-B/32 (Recommended)"), "clip-vit-base-patch32"),
+                                (tr("CLIP ViT-B/16 (Higher Quality)"), "clip-vit-base-patch16"),
+                                (tr("CLIP ViT-L/14 (Best Quality)"), "clip-vit-large-patch14"),
                             ]
                             
                             # Find the index of the saved model
@@ -958,37 +959,37 @@ with settings_tab:
             # Chatterbox TTS特殊设置
             if selected_tts_server == "chatterbox" and friendly_names:
                 st.write("---")
-                st.write("**Chatterbox TTS Settings**")
+                st.write(f"**{tr('Chatterbox TTS Settings')}**")
                 
-                # 显示当前选择的声音类型
+                # Seçilen ses tipini göster
                 if voice_name.startswith("chatterbox:default:"):
-                    st.info("🎙️ Using default Chatterbox voice")
+                    st.info("🎙️ Varsayılan Chatterbox sesi kullanılıyor")
                 elif voice_name.startswith("chatterbox:clone:"):
                     voice_base_name = voice_name.split(":")[-1].split("-")[0]
                     if voice_base_name == "Voice Clone":
-                        st.info("🎯 Voice cloning mode - add reference audio files to reference_audio/ folder")
+                        st.info("🎯 Ses klonlama modu - reference_audio/ klasörüne ses dosyası ekleyin")
                     else:
-                        st.success(f"🎭 Voice cloning with: {voice_base_name}")
+                        st.success(f"🎭 Ses klonlama aktif: {voice_base_name}")
                 
-                # 显示参考音频文件夹信息
+                # Referans ses klasör bilgisi
                 reference_audio_dir = os.path.join(utils.root_dir(), "reference_audio")
                 
                 if not os.path.exists(reference_audio_dir):
-                    with st.expander("📁 Voice Cloning Setup", expanded=False):
-                        st.warning("Reference audio folder not found. Create it to enable voice cloning:")
+                    with st.expander("📁 Ses Klonlama Kurulumu", expanded=False):
+                        st.warning("Referans ses klasörü bulunamadı. Klonlamayı etkinleştirmek için oluşturun:")
                         st.code(f"mkdir {reference_audio_dir}")
-                        st.info("Add your reference audio files (.wav, .mp3, .flac, .m4a) to this folder for voice cloning.")
+                        st.info("Klonlama için (.wav, .mp3, .flac, .m4a) ses dosyalarını bu klasöre ekleyin.")
                 else:
                     audio_files = [f for f in os.listdir(reference_audio_dir) 
                                  if f.lower().endswith(('.wav', '.mp3', '.flac', '.m4a'))]
                     
-                    with st.expander(f"📁 Voice Cloning Files ({len(audio_files)} found)", expanded=False):
+                    with st.expander(f"📁 Ses Klonlama Dosyaları ({len(audio_files)} dosya)", expanded=False):
                         if audio_files:
-                            st.success(f"Found {len(audio_files)} reference audio files:")
+                            st.success(f"{len(audio_files)} referans ses dosyası bulundu:")
                             for file in audio_files:
                                 st.write(f"• {file}")
                         else:
-                            st.info("No reference audio files found. Add .wav, .mp3, .flac, or .m4a files for voice cloning.")
+                            st.info("Referans ses dosyası bulunamadı. Klonlama için .wav veya .mp3 ekleyin.")
 
             # 只有在有声音可选时才显示试听按钮
             if friendly_names and st.button(tr("Play Voice")):
@@ -1166,7 +1167,7 @@ with settings_tab:
                 params.stroke_width = st.slider(tr("Stroke Width"), 0.0, 10.0, 1.5)
 
             # Word highlighting settings
-            st.write("**Word Highlighting**")
+            st.write(f"**{tr('Word Highlighting')}**")
             saved_enable_word_highlighting = config.ui.get("enable_word_highlighting", False)
             params.enable_word_highlighting = st.checkbox(
                 tr("Enable Word Highlighting (If unchecked, the settings below will not take effect)"), 
